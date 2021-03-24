@@ -1,6 +1,5 @@
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
-import numpy as np
 import sys
 
 
@@ -39,6 +38,7 @@ class Node:
         elif (len(points) == 1):
             return Node(points[0][0], points[0][1])
 
+        # Lazy way to find median, could be done in O(n) time instead
         points.sort(key=lambda p : p[0] if split_horizontal else p[1])
 
         mid = int(len(points) / 2)
