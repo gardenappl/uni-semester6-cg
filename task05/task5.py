@@ -16,7 +16,7 @@ def _quick_hull_recursive(l, r, points):
         return [l, r]
 
     # Python max returns first largest element
-    h = max(points, key=lambda p: abs(line_point_distance_est(l, r, p)))
+    h = max(points, key=lambda p: line_point_distance_est(l, r, p))
     print("h:", h)
 
     left_of_lh = []
@@ -30,16 +30,19 @@ def _quick_hull_recursive(l, r, points):
 
     hull_points = _quick_hull_recursive(l, h, left_of_lh) + _quick_hull_recursive(h, r, left_of_hr)
     hull_points.remove(h)
+
     return hull_points
 
 
 def quick_hull(points):
     # Start with a vertical line on the leftmost point
     l = min(points, key=lambda p: p[0])
-    r = [l[0], l[1] + 1]
+    r = [l[0], l[1] - 1]
 
+    points.append(r)
     hull_points = _quick_hull_recursive(l, r, points)
     hull_points.remove(r)
+    points.remove(r)
 
     return hull_points
 
