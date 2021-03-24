@@ -29,6 +29,7 @@ def _quick_hull_recursive(l, r, points):
             left_of_hr.append(p)
 
     hull_points = _quick_hull_recursive(l, h, left_of_lh) + _quick_hull_recursive(h, r, left_of_hr)
+    # Remove h once, because it will be contained twice
     hull_points.remove(h)
 
     return hull_points
@@ -60,6 +61,8 @@ plt.plot(points_x, points_y, 'ro')
 plt.grid()
 
 hull_points = quick_hull(points)
+
+print("Hull points:", hull_points)
 
 prev_point = None
 for hull_point in hull_points:
