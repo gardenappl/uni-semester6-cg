@@ -9,51 +9,6 @@ def get_angle(p1, p2):
     return (math.atan2(p2[1]-p1[1], p2[0]-p1[0]) % (2*math.pi))
 
 
-def get_distance(p1, p2):
-    return math.sqrt((p2[0]-p1[0])*(p2[0]-p1[0]) + (p2[1]-p1[1])*(p2[1]-p1[1]))
-
-
-def get_line_intersection(p1, p2, p3, p4):
-    def line(p1, p2):
-        A = (p1[1] - p2[1])
-        B = (p2[0] - p1[0])
-        C = (p1[0]*p2[1] - p2[0]*p1[1])
-        return A, B, -C
-
-    L1 = line(p1, p2)
-    L2 = line(p3, p4)
-
-    D  = L1[0] * L2[1] - L1[1] * L2[0]
-    Dx = L1[2] * L2[1] - L1[1] * L2[2]
-    Dy = L1[0] * L2[2] - L1[2] * L2[0]
-    if D != 0:
-        x = Dx / D
-        y = Dy / D
-        return x,y
-    else:
-        return False
-
-
-def get_line_segment_intersection(p1, p2, p3, p4):
-    p = get_line_intersection(p1, p2, p3, p4)
-    #print("Intersection between {}, {} and {}, {} is {}".format(p1, p2, p3, p4, p))
-    if p and ((p[0] < p3[0] and p[0] < p4[0]) or (p[0] > p3[0] and p[0] > p4[0]) 
-            or (p[1] < p3[1] and p[1] < p4[1]) or (p[1] > p3[1] and p[1] > p4[1])):
-        #print("...not really")
-        return False
-    return p
-
-
-def get_distance_to_chain(p, points):
-    bisector_angle = (get_angle(p, points[0]) + get_angle(p, points[-1])) / 2
-    p2 = [p[0] + math.cos(bisector_angle), p[1] + math.sin(bisector_angle)]
-    for i in range(1, len(points)):
-        intersection = get_line_segment_intersection(p, p2, points[i-1], points[i])
-        if intersection:
-            return get_distance(p, intersection)
-    raise RuntimeError()
-
-
 def is_left_turn(p1: tuple, p2: tuple, p3: tuple) -> bool:
     return ((p2[0] - p1[0])*(p3[1] - p1[1])) - ((p2[1] - p1[1])*(p3[0] - p1[0])) >= 0
 
@@ -72,7 +27,11 @@ def is_inside_polygon(p, points) -> bool:
 
         angle1 = get_angle(p, points[i])
         angle2 = get_angle(p, points[nextI])
-        if ((angle1 + angle2) / 2 < math.pi/2 or (angle1 + angle2) / 2 > 3*math.pi/2):
+
+        bisect_angle = (angle1 + angle2) / 2
+        if abs(angle1 - angle2) > math.pi:
+            bisect_angle = (bisect_angle + math.pi) % (2*math.pi)
+        if (bisect_angle < math.pi/2 or bisect_angle > 3*math.pi/2):
             intersects += 1
 
     return intersects % 2 != 0
@@ -150,10 +109,11 @@ def hull_shamos(points: np.ndarray):
     print("Shamos hull for", points.tolist())
     if len(points) <= 2:
         return points.tolist()
-    elif len(points) <= 8: 
+    elif len(points) <= 10: 
         return hull_jarvis(points)
 
     def merge(rotateP: tuple, points1: list[tuple], points2: list[tuple]) -> list[tuple]:
+        print("merging", points1, points2)
         mergePoints = []
 
         i = 0
@@ -164,10 +124,12 @@ def hull_shamos(points: np.ndarray):
         while i < len(points1) + len(points2):
             if i2merged == len(points2) or (i1merged < len(points1) and 
                     get_angle(rotateP, points1[i1]) < get_angle(rotateP, points2[i2])):
+                print("add", points1[i1])
                 mergePoints.append(points1[i1])
                 i1 = (i1 + 1) % len(points1)
                 i1merged += 1
             else:
+                print("add", points2[i2])
                 mergePoints.append(points2[i2])
                 i2 = (i2 + 1) % len(points2)
                 i2merged += 1
@@ -192,32 +154,50 @@ def hull_shamos(points: np.ndarray):
     else:
         print("...is not inside Hull 2!")
 
-        min_angle_p2 = min(hull2, key=lambda p2: get_angle(p, p2))
-        #print("Min. angle p2:", min_angle_p2)
-        max_angle_p2 = max(hull2, key=lambda p2: get_angle(p, p2))
-        #print("Max. angle p2:", max_angle_p2)
+        last_angle = min_angle = max_angle = get_angle(p, hull2[0])
+        min_angle_i, max_angle_i = 0, 0
+        min_angle_p2 = max_angle_p2 = hull2[0]
+        for i in range(1, len(hull2)):
+            angle = get_angle(p, hull2[i])
 
-        min_angle_i = hull2.index(min_angle_p2)
-        max_angle_i = hull2.index(max_angle_p2)
+            # these jumps can happen twice during scan
+            if angle - last_angle > math.pi and angle - min_angle > math.pi:
+                min_angle = angle
+                min_angle_i = i
+            elif last_angle - angle > math.pi and max_angle - angle > math.pi:
+                max_angle = angle
+                max_angle_i = i
+            elif angle < min_angle and min_angle - angle < math.pi:
+                min_angle = angle
+                min_angle_i = i
+            elif angle > max_angle and angle - max_angle < math.pi:
+                max_angle = angle
+                max_angle_i = i
+            last_angle = angle
+
+        min_angle_p2 = hull2[min_angle_i]
+        print("Min. angle:", min_angle_p2)
+        max_angle_p2 = hull2[max_angle_i]
+        print("Max. angle:", max_angle_p2)
 
         split_smaller_i = min(min_angle_i, max_angle_i)
         split_bigger_i = max(min_angle_i, max_angle_i)
 
         hull2_half1 = []
-        hull2_half1_dist, hull2_half1_count = 0, 0
         for i in range(split_smaller_i, split_bigger_i + 1):
             hull2_half1.append(hull2[i])
-            hull2_half1_dist += get_distance(p, hull2[i])
-            hull2_half1_count += 1
 
         hull2_half2 = []
-        hull2_half2_dist, hull2_half2_count = 0, 0
         for i in it.chain(range(split_bigger_i, len(hull2)), range(0, split_smaller_i + 1)):
             hull2_half2.append(hull2[i])
-            hull2_half2_dist += get_distance(p, hull2[i])
-            hull2_half2_count += 1
 
-        hull2_outer = hull2_half1 if (get_distance_to_chain(p, hull2_half1) > get_distance_to_chain(p, hull2_half2)) else hull2_half2
+        # Check if half1 is closer to p
+        # Cut a line from min_angle_p2 to max_angle_p2 and check if a point on half1 is on the same side of the line as p
+        if (hull2_half1[1] == min_angle_p2 or hull2_half1[1] == max_angle_p2 or 
+                is_left_turn(p, min_angle_p2, max_angle_p2) == is_left_turn(hull2_half1[1], min_angle_p2, max_angle_p2)):
+            hull2_outer = hull2_half2
+        else:
+            hull2_outer = hull2_half1
 
         print("Hull 2 outer:", hull2_outer)
         merged_hull = merge(p, hull1, hull2_outer)
