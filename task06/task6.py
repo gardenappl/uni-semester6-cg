@@ -150,7 +150,7 @@ def hull_shamos(points: np.ndarray):
     print("Shamos hull for", points.tolist())
     if len(points) <= 2:
         return points.tolist()
-    elif len(points) <= 5: 
+    elif len(points) <= 8: 
         return hull_jarvis(points)
 
     def merge(rotateP: tuple, points1: list[tuple], points2: list[tuple]) -> list[tuple]:
