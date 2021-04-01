@@ -56,7 +56,16 @@ def hull_jarvis(points: np.ndarray) -> list[tuple]:
     # Go down
     while len(points_list) > 0:
         # Lowest angle from last point in hull
-        next_p = min(points_list, key=lambda p: get_angle(hull[-1], p))
+
+        # angle should not be 0 unless we're at the bottom
+        def _down_get_angle(hull, p):
+            angle = get_angle(hull[-1], p)
+            if angle == 0 and p[1] != lowest_p[1]:
+                return 2*math.pi
+            else:
+                return angle
+
+        next_p = min(points_list, key=lambda p: _down_get_angle(hull, p))
         if next_p[1] > hull[-1][1]:
             break
         points_list.remove(next_p)
@@ -87,7 +96,7 @@ def graham_scan(points: list[tuple]):
 def hull_shamos(points: np.ndarray):
     if len(points) <= 2:
         return points.tolist()
-    elif len(points) <= 8: 
+    elif len(points) <= 5: 
         return hull_jarvis(points)
 
     def merge(rotateP: tuple, points1: list[tuple], points2: list[tuple]) -> list[tuple]:
