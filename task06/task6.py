@@ -9,6 +9,10 @@ def get_angle(p1, p2):
     return (math.atan2(p2[1]-p1[1], p2[0]-p1[0]) % (2*math.pi))
 
 
+def get_distance_sq(p1, p2):
+    return pow(p2[0] - p1[0], 2) + pow(p2[1] - p1[0], 2)
+
+
 def is_left_turn(p1: tuple, p2: tuple, p3: tuple) -> bool:
     return ((p2[0] - p1[0])*(p3[1] - p1[1])) - ((p2[1] - p1[1])*(p3[0] - p1[0])) >= 0
 
@@ -47,8 +51,8 @@ def hull_jarvis(points: np.ndarray) -> list[tuple]:
     # Go up
     hull = [lowest_p]
     while len(points_list) > 0:
-        # Lowest angle from last point in hull
-        next_p = min(points_list, key=lambda p: get_angle(hull[-1], p))
+        # Lowest angle (+ shortest distance) from last point in hull
+        next_p = min(points_list, key=lambda p: (get_angle(hull[-1], p), get_distance_sq(hull[-1], p)))
         if next_p[1] < hull[-1][1]:
             break
         points_list.remove(next_p)
@@ -56,18 +60,18 @@ def hull_jarvis(points: np.ndarray) -> list[tuple]:
 
     # Go down
     while len(points_list) > 0:
-        # Lowest angle from last point in hull
+        # Lowest angle (+ shortest distance) from last point in hull
 
         # angle should not be 0 unless we're at the bottom
-        def _down_get_angle(hull, p):
-            angle = get_angle(hull[-1], p)
+        def _down_get_angle_and_distance_sq(last_hull_p, p):
+            angle = get_angle(last_hull_p, p)
             if angle == 0 and p[1] != lowest_p[1]:
-                return 2*math.pi
+                print("NOT BOTTOM!", last_hull_p, p)
+                return (2*math.pi, get_distance_sq(last_hull_p, p))
             else:
-                return angle
+                return (angle, get_distance_sq(last_hull_p, p))
 
-        #next_p = min(points_list, key=lambda p: _down_get_angle(hull, p))
-        next_p = min(points_list, key=lambda p: get_angle(hull[-1], p))
+        next_p = min(points_list, key=lambda p: _down_get_angle_and_distance_sq(hull[-1], p))
         if next_p[1] > hull[-1][1]:
             break
         if get_angle(hull[-1], next_p) > get_angle(hull[-1], lowest_p):
