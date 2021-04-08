@@ -61,56 +61,77 @@ class CurveNode:
         return self.join_index == -1
 
 
-def get_join_indices(i1, i2, chain1, chain2):
-    #print("join", i1, i2, chain1, chain2)
+def get_join_indices(start1, start2, end1, end2, chain1, chain2, upper_curve = True):
+    i1 = (end1 + start1) // 2
+    i2 = (end2 + start2) // 2
+    #print("join", i1, i2, start1, start2, end1, end2, chain1, chain2)
     CONCAVE = 0
     CONVEX = 1
     TANGENT = 2
 
     p1 = chain1[i1]
     p2 = chain2[i2]
-    if i1 == 0 or is_left_turn(p2, p1, chain1[i1 - 1]):
-        if i1 == len(chain1) - 1 or is_left_turn(p2, p1, chain1[i1 + 1]):
-            status1 = TANGENT
+    if upper_curve:
+        if i1 == start1 or is_left_turn(p2, p1, chain1[i1 - 1]):
+            if i1 == end1 - 1 or is_left_turn(p2, p1, chain1[i1 + 1]):
+                status1 = TANGENT
+            else:
+                status1 = CONCAVE
         else:
-            status1 = CONCAVE
-    else:
-        status1 = CONVEX
+            status1 = CONVEX
 
-    if i2 == len(chain2) - 1 or not is_left_turn(p1, p2, chain2[i2 + 1]):
-        if i2 == 0 or not is_left_turn(p1, p2, chain2[i2 - 1]):
-            status2 = TANGENT
+        if i2 == end2 - 1 or not is_left_turn(p1, p2, chain2[i2 + 1]):
+            if i2 == start2 or not is_left_turn(p1, p2, chain2[i2 - 1]):
+                status2 = TANGENT
+            else:
+                status2 = CONCAVE
         else:
-            status2 = CONCAVE
+            status2 = CONVEX
     else:
-        status2 = CONVEX
+        if i1 == start1 or not is_left_turn(p2, p1, chain1[i1 - 1]):
+            if i1 == end1 - 1 or not is_left_turn(p2, p1, chain1[i1 + 1]):
+                status1 = TANGENT
+            else:
+                status1 = CONCAVE
+        else:
+            status1 = CONVEX
+
+        if i2 == end2 - 1 or is_left_turn(p1, p2, chain2[i2 + 1]):
+            if i2 == start2 or is_left_turn(p1, p2, chain2[i2 - 1]):
+                status2 = TANGENT
+            else:
+                status2 = CONCAVE
+        else:
+            status2 = CONVEX
     #print("status", status1, status2)
 
     if status1 == TANGENT and status2 == TANGENT:
         return (i1, i2)
 
     if status1 != CONCAVE:
-        i1 = i1 // 2
+        end1 = max(start1 + 1, i1)
     elif status2 == TANGENT:
-        i1 += (len(chain1) - i1) // 2
+        start1 = i1
 
     if status2 != CONCAVE:
-        i2 += (len(chain2) - i2) // 2
+        start2 = i2
     elif status1 == TANGENT:
-        i2 = i2 // 2
+        end2 = max(start2 + 1, i2)
 
     if status1 == CONCAVE and status2 == CONCAVE:
         p = get_intersection((p1, chain1[i1 + 1]), (p2, chain2[i2 - 1]))
 
-        if p[0] > chain1[-1].p[0]:
-            i2 = i2 // 2
+        if p[0] > chain1[-1][0]:
+            print("decrease end2")
+            end2 = max(start2 + 1, i2)
         else:
-            i1 += (len(chain2) - i2) // 2
+            print("increase start1")
+            start1 = i2
 
-    return get_join_indices(i1, i2, chain1, chain2)
+    return get_join_indices(start1, start2, end1, end2, chain1, chain2, upper_curve)
 
 
-def insert(root_node: CurveNode, p):
+def insert_to_curve(root_node: CurveNode, p, upper_curve):
     node_curves = { root_node: root_node.own_curve }
     def print_node_curves():
         for node, curve in node_curves.items():
@@ -161,7 +182,9 @@ def insert(root_node: CurveNode, p):
 
         node1 = node.parent.left
         node2 = node.parent.right
-        join_i1, join_i2 = get_join_indices(0, 0, node_curves[node1], node_curves[node2])
+        join_i1, join_i2 = get_join_indices(0, 0, len(node_curves[node1]), len(node_curves[node2]), 
+                node_curves[node1], node_curves[node2], upper_curve)
+        print("Joined", node_curves[node1], node_curves[node2], join_i1, join_i2)
         node1.own_curve = node_curves[node1][join_i1 + 1:]
         node2.own_curve = node_curves[node2][:join_i2]
 
@@ -177,6 +200,24 @@ def insert(root_node: CurveNode, p):
     print(root_node)
 
     return node_curves[root_node]
+
+
+def insert_to_hull(upper_root_node, lower_root_node, p):
+    print("============")
+    print(" Upper Hull ")
+    print("============")
+    print()
+    upper_curve = insert_to_curve(upper_root_node, p, True).copy()
+    print("============")
+    print(" Lower Hull ")
+    print("============")
+    print()
+    lower_curve = insert_to_curve(lower_root_node, p, False)
+    upper_curve.pop()
+    upper_curve.extend(reversed(lower_curve))
+    upper_curve.pop()
+    return upper_curve
+    
         
 
 points = []
@@ -185,7 +226,8 @@ with open('points.txt') as points_file:
     for line in points_file:
         points.append([int(num) for num in line.split()])
 
-root = CurveNode(points[0], [])
+upper_root = CurveNode(points[0], [])
+lower_root = CurveNode(points[0], [])
 
 for i in range(1, len(points)):
     points_x, points_y = zip(*points[:i + 1])
@@ -193,7 +235,7 @@ for i in range(1, len(points)):
     plt.plot(points_x, points_y, 'ro')
     plt.grid()
 
-    hull_points = insert(root, points[i])
+    hull_points = insert_to_hull(upper_root, lower_root, points[i])
 
     print("Hull points:", hull_points)
 
@@ -202,5 +244,8 @@ for i in range(1, len(points)):
         if prev_point:
             plt.plot([prev_point[0], hull_point[0]], [prev_point[1], hull_point[1]])
         prev_point = hull_point
+
+    # connect first point to last
+    plt.plot([hull_points[0][0], prev_point[0]], [hull_points[0][1], prev_point[1]])
 
     plt.show()
