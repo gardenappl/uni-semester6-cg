@@ -3,11 +3,11 @@ from collections import deque
 
 
 def is_left_turn(p1: tuple, p2: tuple, p3: tuple) -> bool:
-    return ((p2[0] - p1[0])*(p3[1] - p1[1])) - ((p2[1] - p1[1])*(p3[0] - p1[0])) >= 0
+    return ((p2[0] - p1[0])*(p3[1] - p1[1])) - ((p2[1] - p1[1])*(p3[0] - p1[0])) > 0
 
 
 def is_right_turn(p1: tuple, p2: tuple, p3: tuple) -> bool:
-    return ((p2[0] - p1[0])*(p3[1] - p1[1])) - ((p2[1] - p1[1])*(p3[0] - p1[0])) <= 0
+    return ((p2[0] - p1[0])*(p3[1] - p1[1])) - ((p2[1] - p1[1])*(p3[0] - p1[0])) < 0
 
 
 def _get_convex_hull_lee_curve(polygon, upper_curve: bool):
@@ -19,7 +19,6 @@ def _get_convex_hull_lee_curve(polygon, upper_curve: bool):
         p0 = (start[0], start[1] - 1)
 
         is_correct_turn = is_right_turn
-        is_wrong_turn = is_left_turn
     else:
         start = max(polygon, key=lambda p: p[0])
         end = min(polygon, key=lambda p: p[0])
@@ -28,12 +27,11 @@ def _get_convex_hull_lee_curve(polygon, upper_curve: bool):
         p0 = (start[0], start[1] + 1)
 
         is_correct_turn = is_right_turn
-        is_wrong_turn = is_left_turn
 
     if polygon.index(start) < polygon.index(end):
         curve = deque(polygon[polygon.index(start) + 1:polygon.index(end) + 1])
     else:
-        curve = deque(polygon[polygon.index(start):])
+        curve = deque(polygon[polygon.index(start) + 1:])
         curve.extend(polygon[:polygon.index(end) + 1])
     hull_curve = deque([p0, start])
 
@@ -57,12 +55,12 @@ def _get_convex_hull_lee_curve(polygon, upper_curve: bool):
                 print("Correct turn")
 
                 print("Step 3:", end, hull_curve[-1], p)
-                if is_correct_turn(end, hull_curve[-1], p):
+                if is_correct_turn(end, hull_curve[-1], p) or p == end:
                     print("Correct turn")
                     hull_curve.append(p)
                 else:
                     print("Wrong turn")
-                    while not is_correct_turn(end, hull_curve[-1], curve[0]):
+                    while not (is_correct_turn(end, hull_curve[-1], curve[0]) or curve[0] == end):
                         curve.popleft()
             else:
                 print("Wrong turn")
@@ -70,7 +68,7 @@ def _get_convex_hull_lee_curve(polygon, upper_curve: bool):
                     curve.popleft()
         else:
             print("Wrong turn")
-            while is_wrong_turn(hull_curve[-2], hull_curve[-1], p):
+            while not is_correct_turn(hull_curve[-2], hull_curve[-1], p):
                 hull_curve.pop()
             hull_curve.append(p)
 
